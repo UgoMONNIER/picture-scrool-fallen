@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photo Collage with Effects</title>
+    <style>
+        @import "https://unpkg.com/open-props/open-props.min.css";
+        @import "https://unpkg.com/open-props/normalize.min.css";
+
+        *, *:after, *:before {
+            box-sizing: border-box;
+        }
+
+        body {
+            display: grid;
+            place-items: center;
+            min-height: 100vh;
+            font-family: "Google Sans", sans-serif, system-ui;
+            width: 100vw;
+            overflow-x: hidden;
+            color: var(--text-1);
+        }
+
+        main {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .photo-block {
+            position: sticky;
+            top: 0; /* Align it to the top */
+            height: 100vh; /* Use full viewport height */
+            width: 100%;
+            display: grid;
+            overflow: hidden;
+            background: linear-gradient(to bottom, rgb(105, 46, 176), rgb(192, 109, 255)); /* A pinkish color */
+        }
+
+        .photo-grid {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(38deg);
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            transition: transform 0.5s ease; /* For parallax effect */
+        }
+
+        .photo {
+            aspect-ratio: 3 / 4;
+            width: 20vmax;
+            opacity: 0; /* Start hidden */
+            transform: scale(0.8) rotate(0deg); /* Start scaled down and not rotated */
+            transition: transform 0.5s ease, opacity 0.5s ease; /* Transition for effects */
+            position: relative; /* Make it relative for falling effect */
+            cursor: pointer; /* Change cursor to pointer on hover */
+        }
+
+        .fall {
+            animation: fall 1.5s forwards; /* Falling animation */
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0; /* Fade out */
+            }
+        }
+
+        .collage {
+            height: 200vh; /* Allow for scrolling */
+            view-timeline: --collage;
+        }
+
+        .photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Scroll instruction styles */
+        .scroll-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.5rem;
+            color: #333;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            z-index: 10; /* Ensure it's on top */
+        }
+
+        .scroll-indicator.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="collage">
+            <div class="photo-block">
+                <div class="photo-grid" id="photoGrid">
+                    <!-- Images will be inserted here dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="scroll-indicator" id="scrollIndicator">Scroll Down!</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const photoGrid = document.getElementById('photoGrid');
+
+            // Generate 100 images dynamically
+            for (let i = 0; i < 100; i++) {
+                const photoDiv = document.createElement('div');
+                photoDiv.className = 'photo';
+                photoDiv.innerHTML = `<img data-src="https://picsum.photos/600/800?random=${i}" alt="Random image ${i}" class="lazy" />`;
+                photoGrid.appendChild(photoDiv);
+            }
+
+            // Lazy loading images
+            const lazyImages = document.querySelectorAll("img.lazy");
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.classList.remove("lazy");
+                        observer.unobserve(img);
+                    }
+                });
+            });
+
+            lazyImages.forEach((image) => {
+                imageObserver.observe(image);
+            });
+
+            // Add click event to each photo
+            const photos = document.querySelectorAll('.photo');
+            photos.forEach(photo => {
+                photo.addEventListener('click', () => {
+                    photo.classList.add('fall'); // Add falling effect
+                });
+            });
+
+            // Scroll effect
+            window.addEventListener("scroll", () => {
+                const scrollPosition = (Math.random() * 10) - (window.scrollY / 10);
+                const scrollSpeed = 0.5 + 0.5 * Math.random(); // Varie entre 0.5 et 1
+                const translateY = scrollPosition * (Math.random() * 10) * scrollSpeed;
+
+                const photoGrid = document.querySelector('.photo-grid');
+                photoGrid.style.transform = `translate(-50%, calc(-50% + ${translateY}px))`;
+
+                // Falling effect for images
+                photos.forEach((photo) => {
+                    const rect = photo.getBoundingClientRect();
+                    const windowHeight = window.innerHeight;
+
+                    // Check if the photo is in the viewport
+                    if (rect.top < windowHeight && rect.bottom > 0) {
+                        const opacity = Math.min(1, (windowHeight - rect.top) / windowHeight);
+                        const scale = 0.8 + (opacity * 0.2); // Scale up as it appears
+                        const rotation = Math.min(30, (opacity * 30)); // Rotate up to 30 degrees
+                        photo.style.opacity = opacity;
+                        photo.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+                    } else {
+                        // Reset if out of viewport
+                        photo.style.opacity = 0;
+                        photo.style.transform = `scale(0.8) rotate(0deg)`;
+                    }
+                });
+
+                // Hide scroll indicator on scroll
+                document.getElementById('scrollIndicator').classList.remove('visible');
+            });
+
+            // Show scroll indicator initially
+            const scrollIndicator = document.getElementById('scrollIndicator');
+            scrollIndicator.classList.add('visible');
+
+            // Automatically hide scroll indicator after 3 seconds
+            setTimeout(() => {
+                scrollIndicator.classList.remove('visible');
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
